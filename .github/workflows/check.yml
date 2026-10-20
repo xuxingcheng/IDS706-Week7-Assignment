@@ -1,0 +1,41 @@
+name: Check SQL quiz
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - run: python -m unittest discover -s tests -v
+  live-database:
+    if: github.event_name != 'pull_request'
+    needs: tests
+    runs-on: ubuntu-latest
+    env:
+      DB_HOST: ${{ secrets.DB_HOST }}
+      DB_PORT: '5432'
+      POSTGRES_DB: postgres
+      POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - name: Require repository secrets
+        run: |
+          test -n "$DB_HOST" || { echo "Add DB_HOST in repository Secrets"; exit 1; }
+          test -n "$POSTGRES_USER" || { echo "Add POSTGRES_USER in repository Secrets"; exit 1; }
+          test -n "$POSTGRES_PASSWORD" || { echo "Add POSTGRES_PASSWORD in repository Secrets"; exit 1; }
+      - name: Verify all hints against Supabase
+        run: python check_database.py
