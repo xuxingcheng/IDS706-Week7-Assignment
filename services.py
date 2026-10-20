@@ -1,5 +1,6 @@
 """Small helpers for Supabase Auth, saved answers, and Postgres queries."""
 import os
+from pathlib import Path
 
 import psycopg2
 import requests
@@ -7,7 +8,7 @@ import sqlglot
 from sqlglot import exp
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(Path(__file__).with_name(".env"))
 
 
 def api(method, path, token=None, **kwargs):
@@ -20,8 +21,26 @@ def api(method, path, token=None, **kwargs):
         headers=headers, timeout=15, **kwargs
     )
     if not response.ok:
-        # Do not expose response bodies, tokens or connection details to the page.
-        raise ValueError("Supabase rejected the request. Check your login, email confirmation, and setup.")
+        # Translate known codes; never display raw responses or credentials.
+        try:
+            code = response.json().get("error_code", "")
+        except (ValueError, AttributeError):
+            code = ""
+        messages = {
+            "email_address_not_authorized": "Supabase cannot send confirmation emails to this address with its default email service. The project owner needs to configure custom SMTP.",
+            "over_email_send_rate_limit": "Supabase's confirmation email limit has been reached. Wait before retrying, or configure custom SMTP.",
+            "over_request_rate_limit": "Too many attempts. Wait a few minutes before trying again.",
+            "weak_password": "Your password does not meet the project's requirements. Use a longer password with letters, numbers, and symbols.",
+            "email_address_invalid": "Enter a valid email address.",
+            "validation_failed": "Check your email address and password format.",
+            "user_already_exists": "An account already exists. Try Sign in instead.",
+            "email_exists": "An account already exists. Try Sign in instead.",
+            "email_not_confirmed": "Confirm your email using the link from Supabase before signing in.",
+            "invalid_credentials": "The email or password is incorrect.",
+            "signup_disabled": "Registration is disabled in this Supabase project.",
+            "email_provider_disabled": "Enable email sign-in in Supabase Authentication settings.",
+        }
+        raise ValueError(messages.get(code, f"Supabase could not complete the request (HTTP {response.status_code}). Check the project's Authentication logs."))
     return response.json() if response.content else None
 
 
@@ -37,7 +56,12 @@ def sign_in(email, password):
 
 
 def sign_up(email, password):
-    api("POST", "/auth/v1/signup", json={"email": email, "password": password})
+    email = email.strip()
+    if "@" not in email or not email.rsplit("@", 1)[-1] or " " in email:
+        raise ValueError("Enter a valid email address.")
+    if len(password) < 6:
+        raise ValueError("Use a password with at least 6 characters.")
+    return api("POST", "/auth/v1/signup", json={"email": email, "password": password})
 
 
 def save_answer(token, question_id, query):

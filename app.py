@@ -29,7 +29,7 @@ with st.sidebar:
             st.session_state.clear()
             st.rerun()
     else:
-        with st.form("login", clear_on_submit=True):
+        with st.form("login", clear_on_submit=False):
             email = st.text_input("Email")
             password = st.text_input("Password", type="password")
             login = st.form_submit_button("Sign in")
@@ -40,10 +40,16 @@ with st.sidebar:
                 st.session_state.email = email.strip()
                 st.rerun()
             if register:
-                sign_up(email.strip(), password)
-                st.success("Check your email to confirm your account, then sign in. If confirmation is disabled, sign in now.")
-        except (ValueError, requests.RequestException):
-            st.error("Could not sign in or create the account. Check your details and email confirmation.")
+                result = sign_up(email.strip(), password)
+                if result.get("access_token"):
+                    st.session_state.token = result["access_token"]
+                    st.session_state.email = email.strip()
+                    st.rerun()
+                st.success("Check your inbox and spam folder for a confirmation email, then sign in. If you already registered, try Sign in instead.")
+        except ValueError as exc:
+            st.error(str(exc))
+        except requests.RequestException:
+            st.error("Could not reach Supabase. Check your internet connection and try again.")
 
 token = st.session_state.get("token")
 if not token:
