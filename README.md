@@ -2,7 +2,7 @@
 
 A SQL quiz about six fictional restaurants near campus. There are **five questions worth 4 points each, for 20 points total**.
 
-**Quiz website:** [Add the deployed Streamlit URL here.](https://ids706-week7-assignment-eal7qfhxltyx4amvaqtatz.streamlit.app/)
+**Quiz website:** [Quiz URL](https://ids706-week7-assignment-eal7qfhxltyx4amvaqtatz.streamlit.app/)
 
 ## How to use
 
